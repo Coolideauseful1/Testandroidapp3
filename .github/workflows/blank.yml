@@ -1,4 +1,4 @@
-name: HTML to APK (All-in-One)
+name: HTML to APK (Fully Fixed)
 
 on:
   push:
@@ -30,13 +30,12 @@ jobs:
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Test Site</title>
+              <title>Test APK</title>
               <link rel="stylesheet" href="style.css">
           </head>
           <body>
-              <h1>Welcome to My Test Site</h1>
-              <p>This APK was built entirely from GitHub Actions.</p>
-              <button onclick="showMessage()">Click Me</button>
+              <h1>APK built successfully!</h1>
+              <button onclick="test()">Click Me</button>
               <script src="script.js"></script>
           </body>
           </html>
@@ -44,35 +43,20 @@ jobs:
 
           # style.css
           cat <<EOF > app/src/main/assets/style.css
-          body {
-              font-family: Arial, sans-serif;
-              text-align: center;
-              padding-top: 50px;
-              background-color: #f8f9fa;
-          }
-          h1 {
-              color: #343a40;
-          }
-          button {
-              padding: 10px 20px;
-              font-size: 16px;
-              cursor: pointer;
-          }
+          body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+          button { padding: 10px 20px; font-size: 16px; }
           EOF
 
           # script.js
           cat <<EOF > app/src/main/assets/script.js
-          function showMessage() {
-              alert('Hello from GitHub Actions APK!');
-          }
+          function test(){alert('APK is working!');}
           EOF
 
-          # AndroidManifest.xml
+          # AndroidManifest.xml (fixed)
           cat <<EOF > app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.example.webapp">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <application android:allowBackup="true" android:label="WebApp" android:icon="@android:drawable/ic_menu_info_details">
-                  <activity android:name=".MainActivity">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
@@ -88,27 +72,23 @@ jobs:
           package com.example.webapp;
           import android.app.Activity;
           import android.os.Bundle;
-          import android.webkit.WebSettings;
           import android.webkit.WebView;
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  WebView webView = new WebView(this);
-                  WebSettings settings = webView.getSettings();
-                  settings.setJavaScriptEnabled(true);
-                  webView.loadUrl("file:///android_asset/index.html");
-                  setContentView(webView);
+                  WebView wv=new WebView(this);
+                  wv.getSettings().setJavaScriptEnabled(true);
+                  wv.loadUrl("file:///android_asset/index.html");
+                  setContentView(wv);
               }
           }
           EOF
 
-          # build.gradle (app-level)
+          # build.gradle (fixed namespace)
           mkdir -p app
           cat <<EOF > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
+          plugins { id 'com.android.application' }
           android {
               namespace 'com.example.webapp'
               compileSdk 34
@@ -129,15 +109,13 @@ jobs:
           # settings.gradle
           echo "include ':app'" > settings.gradle
 
-          # Root build.gradle
+          # root build.gradle
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
               dependencies { classpath 'com.android.tools.build:gradle:8.4.0' }
           }
-          allprojects {
-              repositories { google(); mavenCentral() }
-          }
+          allprojects { repositories { google(); mavenCentral() } }
           EOF
 
           # gradle.properties
@@ -156,6 +134,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: All-In-One-APK
+          name: Working-WebApp-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          
