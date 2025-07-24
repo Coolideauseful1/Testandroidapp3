@@ -1,0 +1,161 @@
+name: HTML to APK (All-in-One)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Create Android Project with Embedded HTML/CSS/JS
+        run: |
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/java/com/example/webapp
+
+          # index.html
+          cat <<EOF > app/src/main/assets/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Test Site</title>
+              <link rel="stylesheet" href="style.css">
+          </head>
+          <body>
+              <h1>Welcome to My Test Site</h1>
+              <p>This APK was built entirely from GitHub Actions.</p>
+              <button onclick="showMessage()">Click Me</button>
+              <script src="script.js"></script>
+          </body>
+          </html>
+          EOF
+
+          # style.css
+          cat <<EOF > app/src/main/assets/style.css
+          body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              padding-top: 50px;
+              background-color: #f8f9fa;
+          }
+          h1 {
+              color: #343a40;
+          }
+          button {
+              padding: 10px 20px;
+              font-size: 16px;
+              cursor: pointer;
+          }
+          EOF
+
+          # script.js
+          cat <<EOF > app/src/main/assets/script.js
+          function showMessage() {
+              alert('Hello from GitHub Actions APK!');
+          }
+          EOF
+
+          # AndroidManifest.xml
+          cat <<EOF > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.example.webapp">
+              <application android:allowBackup="true" android:label="WebApp" android:icon="@android:drawable/ic_menu_info_details">
+                  <activity android:name=".MainActivity">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+              <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
+          </manifest>
+          EOF
+
+          # MainActivity.java
+          cat <<EOF > app/src/main/java/com/example/webapp/MainActivity.java
+          package com.example.webapp;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView webView = new WebView(this);
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  webView.loadUrl("file:///android_asset/index.html");
+                  setContentView(webView);
+              }
+          }
+          EOF
+
+          # build.gradle (app-level)
+          mkdir -p app
+          cat <<EOF > app/build.gradle
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.example.webapp'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.example.webapp"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          # settings.gradle
+          echo "include ':app'" > settings.gradle
+
+          # Root build.gradle
+          cat <<EOF > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.4.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
+
+          # gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
+
+          # Gradle Wrapper
+          wget https://services.gradle.org/distributions/gradle-8.7-bin.zip
+          unzip gradle-8.7-bin.zip
+          ./gradle-8.7/bin/gradle wrapper
+
+      - name: Build APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: All-In-One-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
