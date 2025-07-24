@@ -1,4 +1,4 @@
-name: HTML to APK (Fully Fixed)
+name: Test App APK Build
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -18,44 +17,68 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Create Android Project with Embedded HTML/CSS/JS
+      - name: Prepare Android project (Clean UI)
         run: |
-          mkdir -p app/src/main/assets
-          mkdir -p app/src/main/java/com/example/webapp
+          mkdir -p app/src/main/{assets,java/com/example/testapp}
 
-          # index.html
+          # HTML
           cat <<EOF > app/src/main/assets/index.html
           <!DOCTYPE html>
           <html lang="en">
           <head>
               <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Test APK</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Test App</title>
               <link rel="stylesheet" href="style.css">
           </head>
           <body>
-              <h1>APK built successfully!</h1>
-              <button onclick="test()">Click Me</button>
+              <nav class="navbar">
+                  <div class="container">
+                      <span class="brand">Test App</span>
+                      <ul class="nav">
+                          <li><a href="#">Home</a></li>
+                          <li><a href="#">Docs</a></li>
+                          <li><a href="#">Examples</a></li>
+                      </ul>
+                  </div>
+              </nav>
+
+              <header class="hero">
+                  <div class="container">
+                      <h1>Build fast, responsive sites easily</h1>
+                      <p>A simple, modern UI toolkit.</p>
+                      <button onclick="showAlert()">Get Started</button>
+                  </div>
+              </header>
+
               <script src="script.js"></script>
           </body>
           </html>
           EOF
 
-          # style.css
+          # CSS
           cat <<EOF > app/src/main/assets/style.css
-          body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-          button { padding: 10px 20px; font-size: 16px; }
+          body {margin:0;font-family:sans-serif;color:#212529;background:#fff;}
+          .container {width:90%;margin:auto;max-width:900px;}
+          .navbar {background-color:#563d7c;padding:15px;color:#fff;}
+          .navbar .brand {font-weight:bold;font-size:1.2em;}
+          .navbar .nav {list-style:none;padding:0;margin:0;float:right;}
+          .navbar .nav li {display:inline-block;margin-left:15px;}
+          .navbar .nav a {color:#fff;text-decoration:none;}
+          .hero {padding:80px 0;text-align:center;}
+          .hero h1 {font-size:3em;margin-bottom:0.3em;}
+          .hero button {padding:10px 20px;font-size:16px;background-color:#7952b3;color:#fff;border:none;border-radius:5px;}
           EOF
 
-          # script.js
+          # JS
           cat <<EOF > app/src/main/assets/script.js
-          function test(){alert('APK is working!');}
+          function showAlert(){alert('Welcome to your Test App!')}
           EOF
 
-          # AndroidManifest.xml (fixed)
+          # AndroidManifest
           cat <<EOF > app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:allowBackup="true" android:label="WebApp" android:icon="@android:drawable/ic_menu_info_details">
+              <application android:allowBackup="true" android:label="Test App" android:icon="@android:drawable/ic_menu_info_details">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
@@ -68,32 +91,34 @@ jobs:
           EOF
 
           # MainActivity.java
-          cat <<EOF > app/src/main/java/com/example/webapp/MainActivity.java
-          package com.example.webapp;
+          cat <<EOF > app/src/main/java/com/example/testapp/MainActivity.java
+          package com.example.testapp;
           import android.app.Activity;
           import android.os.Bundle;
+          import android.webkit.WebSettings;
           import android.webkit.WebView;
           public class MainActivity extends Activity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  WebView wv=new WebView(this);
-                  wv.getSettings().setJavaScriptEnabled(true);
-                  wv.loadUrl("file:///android_asset/index.html");
-                  setContentView(wv);
+                  WebView webview = new WebView(this);
+                  WebSettings settings = webview.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  webview.loadUrl("file:///android_asset/index.html");
+                  setContentView(webview);
               }
           }
           EOF
 
-          # build.gradle (fixed namespace)
+          # Gradle Files
           mkdir -p app
           cat <<EOF > app/build.gradle
           plugins { id 'com.android.application' }
           android {
-              namespace 'com.example.webapp'
+              namespace 'com.example.testapp'
               compileSdk 34
               defaultConfig {
-                  applicationId "com.example.webapp"
+                  applicationId "com.example.testapp"
                   minSdk 21
                   targetSdk 34
                   versionCode 1
@@ -105,11 +130,8 @@ jobs:
               }
           }
           EOF
-
-          # settings.gradle
           echo "include ':app'" > settings.gradle
 
-          # root build.gradle
           cat <<EOF > build.gradle
           buildscript {
               repositories { google(); mavenCentral() }
@@ -118,10 +140,8 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           EOF
 
-          # gradle.properties
           echo "org.gradle.jvmargs=-Xmx2048m" > gradle.properties
 
-          # Gradle Wrapper
           wget https://services.gradle.org/distributions/gradle-8.7-bin.zip
           unzip gradle-8.7-bin.zip
           ./gradle-8.7/bin/gradle wrapper
@@ -131,8 +151,8 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Working-WebApp-APK
+          name: Test-App-APK
           path: app/build/outputs/apk/debug/app-debug.apk
