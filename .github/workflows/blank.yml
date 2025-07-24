@@ -1,4 +1,4 @@
-name: Note App CI/CD
+name: All-in-One Android Note App APK
 
 on:
   push:
@@ -6,64 +6,152 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write  # ← This fixes your permissions issue
-
 jobs:
-  build-and-deploy:
+  build-apk:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
-          node-version: '20'
+          java-version: '17'
+          distribution: temurin
 
-      - name: Create Project Files
+      - name: Generate Android Note App
         run: |
-          mkdir -p dist
-          cat <<EOF > dist/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Minimal Note App</title>
-            <style>
-              body { font-family: sans-serif; padding: 20px; background-color: #f8f8f8; }
-              textarea { width: 100%; height: 300px; padding: 15px; font-size: 16px; }
-              button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
-            </style>
-          </head>
-          <body>
-            <h2>Minimal Note App</h2>
-            <textarea id="note"></textarea>
-            <br>
-            <button onclick="saveNote()">Save Note</button>
-            <button onclick="clearNote()">Clear Note</button>
-
-            <script>
-              const note = document.getElementById('note');
-              window.onload = () => note.value = localStorage.getItem('note') || '';
-              function saveNote() {
-                localStorage.setItem('note', note.value);
-                alert('Note saved!');
-              }
-              function clearNote() {
-                note.value = '';
-                localStorage.removeItem('note');
-                alert('Note cleared!');
-              }
-            </script>
-          </body>
-          </html>
+          mkdir -p NoteApp/app/src/main/java/com/example/noteapp
+          mkdir -p NoteApp/app/src/main/res/layout
+          mkdir -p NoteApp/app/src/main/res/values
+          mkdir -p NoteApp/app/src/main/res/mipmap-xxhdpi
+          
+          cat <<EOF > NoteApp/settings.gradle
+          include ':app'
           EOF
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+          cat <<EOF > NoteApp/build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.4.2' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+
+          cat <<EOF > NoteApp/app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.example.noteapp'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.example.noteapp"
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
+              }
+          }
+          EOF
+
+          cat <<EOF > NoteApp/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.example.noteapp">
+              <application android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="NoteApp"
+                  android:theme="@android:style/Theme.Material.Light">
+                  <activity android:name=".MainActivity">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat <<EOF > NoteApp/app/src/main/java/com/example/noteapp/MainActivity.java
+          package com.example.noteapp;
+          import android.app.Activity;
+          import android.content.SharedPreferences;
+          import android.os.Bundle;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.Toast;
+
+          public class MainActivity extends Activity {
+              private EditText noteText;
+
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  noteText = findViewById(R.id.note);
+                  SharedPreferences sp = getPreferences(MODE_PRIVATE);
+                  noteText.setText(sp.getString("note",""));
+
+                  Button saveBtn = findViewById(R.id.saveBtn);
+                  Button clearBtn = findViewById(R.id.clearBtn);
+
+                  saveBtn.setOnClickListener(v -> {
+                      sp.edit().putString("note",noteText.getText().toString()).apply();
+                      Toast.makeText(this,"Note Saved",Toast.LENGTH_SHORT).show();
+                  });
+
+                  clearBtn.setOnClickListener(v -> {
+                      noteText.setText("");
+                      sp.edit().remove("note").apply();
+                      Toast.makeText(this,"Note Cleared",Toast.LENGTH_SHORT).show();
+                  });
+              }
+          }
+          EOF
+
+          cat <<EOF > NoteApp/app/src/main/res/layout/activity_main.xml
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical"
+              android:layout_width="match_parent"
+              android:padding="20dp"
+              android:layout_height="match_parent">
+              <EditText android:id="@+id/note"
+                  android:layout_width="match_parent"
+                  android:layout_height="0dp"
+                  android:layout_weight="1"
+                  android:gravity="top"
+                  android:hint="Write your note here"/>
+              <Button android:id="@+id/saveBtn"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:text="Save Note"/>
+              <Button android:id="@+id/clearBtn"
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:text="Clear Note"/>
+          </LinearLayout>
+          EOF
+
+          cat <<EOF > NoteApp/app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">NoteApp</string>
+          </resources>
+          EOF
+
+          curl -o NoteApp/app/src/main/res/mipmap-xxhdpi/ic_launcher.png \
+            https://developer.android.com/static/studio/images/icons/ic_launcher.png
+
+      - name: Build APK
+        working-directory: NoteApp
+        run: |
+          chmod +x ./gradlew || true
+          ./gradlew assembleDebug || gradle wrapper && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          
+          name: NoteApp-APK
+          path: NoteApp/app/build/outputs/apk/debug/app-debug.apk
